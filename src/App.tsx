@@ -1,35 +1,84 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import styled from "styled-components";
+
+const TopBar = () => {
+  return (
+    <div style={{ padding: "10px", height: "100%" }}>
+      <h2>File Upload Handler</h2>
+    </div>
+  );
+};
+
+const Sidebar = () => {
+  return (
+    <div style={{ padding: "10px" }}>
+      <h3>File Tree</h3>
+    </div>
+  );
+};
+
+const Editor = () => {
+  return (
+    <div style={{ padding: "10px" }}>
+      <div style={{ marginBottom: "10px", borderBottom: "1px solid #e0e0e0" }}>
+        <h3>File Tab</h3>
+      </div>
+      <div>
+        <h3>Monaco Editor</h3>
+      </div>
+    </div>
+  );
+};
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <AppContainer>
+        <HeaderContainer>
+          <TopBar />
+        </HeaderContainer>
+        <BodyContainer>
+          <SidebarContainer>
+            <Sidebar />
+          </SidebarContainer>
+          <ContentContainer>
+            <Editor />
+          </ContentContainer>
+        </BodyContainer>
+      </AppContainer>
     </>
-  )
+  );
 }
 
-export default App
+const AppContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  background-color: green;
+  height: 100%;
+  width: 100%;
+`;
+
+const HeaderContainer = styled.div`
+  height: 60px;
+  width: 100%;
+  border-bottom: 1px solid #e0e0e0;
+`;
+
+const BodyContainer = styled.div`
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  overflow: hidden;
+`;
+
+const SidebarContainer = styled.div`
+  width: 250px;
+  border-right: 1px solid #e0e0e0;
+  overflow: auto;
+`;
+
+const ContentContainer = styled.div`
+  flex: 1;
+  overflow: auto;
+`;
+
+export default App;
