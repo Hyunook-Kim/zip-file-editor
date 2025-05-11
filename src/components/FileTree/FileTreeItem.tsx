@@ -10,7 +10,7 @@ interface FileTreeItemProps {
 }
 
 const FileTreeItem: React.FC<FileTreeItemProps> = ({ item, level }) => {
-  const { setCurrentFile, toggleFolder, isExpanded } = useFileStore();
+  const { toggleFolder, isExpanded, openNewTab } = useFileStore();
   const isDirectory = item.type === "directory";
   const expanded = isDirectory && isExpanded(item.path);
 
@@ -18,7 +18,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({ item, level }) => {
     if (isDirectory) {
       toggleFolder(item.path);
     } else {
-      setCurrentFile(item);
+      openNewTab(item);
     }
   };
 
