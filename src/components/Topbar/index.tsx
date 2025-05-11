@@ -9,8 +9,9 @@ import { useFileStore } from "@/models/files/store";
 const TopBar = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { setZipData, setIsLoading, isLoading } = useFileStore();
+  const { setZipData, setIsLoading, isLoading, zipData } = useFileStore();
 
   const detectFileType = (filename: string): FileType => {
     if (filename.endsWith("/")) return "directory";
@@ -125,7 +126,6 @@ const TopBar = () => {
                 item.content = "Error decoding file content.";
               }
             } else if (item.type === "image") {
-              // 이미지 처리는 나중에 구현
               item.content = new Blob([data], {
                 type: `image/${item.extension}`,
               });
@@ -209,6 +209,65 @@ const TopBar = () => {
     }
   };
 
+  const handleSaveZipFile = async () => {
+    if (!zipData) {
+      alert("No ZIP file to save. Please upload a ZIP file first.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const newZip = new JSZip();
+      const flatList = zipData.flatList;
+
+      // 텍스트와 이미지 파일 저장
+      for (const path in flatList) {
+        const item = flatList[path];
+        if (item.type === "directory" || path === "") continue;
+
+        if (item.type === "text" && typeof item.content === "string") {
+          newZip.file(item.path, item.content);
+        } else if (item.type === "image" && item.content instanceof Blob) {
+          newZip.file(item.path, item.content);
+        } else if (item.type === "binary") {
+          // 바이너리 파일은 원본에서 가져와 저장
+          const originalZip = await JSZip.loadAsync(zipData.originalFile);
+          const content = await originalZip
+            .file(item.path)
+            ?.async("uint8array");
+          if (content) {
+            newZip.file(item.path, content);
+          }
+        }
+      }
+
+      const zipBlob = await newZip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 9 },
+      });
+
+      const downloadLink = document.createElement("a");
+      downloadLink.href = URL.createObjectURL(zipBlob);
+
+      const originalName = zipData.originalFile.name;
+      const extension = originalName.split(".").pop() || "zip";
+      const baseName = originalName.replace(`.${extension}`, "");
+      downloadLink.download = `${baseName}_edited.${extension}`;
+
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+
+      console.log("ZIP file saved successfully");
+    } catch (error) {
+      console.error("Error saving ZIP file:", error);
+      alert("Error saving ZIP file. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <TopBarContainer>
       <h2>File Upload Handler (Upload/Download)</h2>
@@ -217,6 +276,13 @@ const TopBar = () => {
           <UploadButton onClick={handleFileButtonClick} disabled={isLoading}>
             {isLoading ? "Parsing..." : "Upload Zip File"}
           </UploadButton>
+
+          {zipData && (
+            <SaveButton onClick={handleSaveZipFile} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save ZIP File"}
+            </SaveButton>
+          )}
+
           <input
             type="file"
             ref={fileInputRef}
@@ -288,6 +354,26 @@ const UploadButton = styled.button<{ disabled?: boolean }>`
   &:hover {
     background-color: ${(props) =>
       props.disabled ? "#cccccc" : "var(--color-primary-dark)"};
+  }
+`;
+
+const SaveButton = styled.button`
+  padding: 8px 16px;
+  background-color: var(--color-accent);
+  color: var(--color-text);
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: 10px;
+
+  &:hover {
+    background-color: var(--color-accent-hover);
+  }
+
+  &:disabled {
+    background-color: var(--color-border);
+    cursor: not-allowed;
   }
 `;
 

@@ -7,24 +7,55 @@ import MonacoEditor from "../MonacoEditor";
 const Editor = () => {
   const { currentFile, zipData, setZipData } = useFileStore();
   const [isEdited, setIsEdited] = useState<boolean>(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const handleEditorChange = (newContent: string) => {
     if (!currentFile || !zipData) return;
     if (typeof currentFile.content !== "string") return;
 
-    if (currentFile.content !== newContent) {
-      setIsEdited(true);
+    try {
+      if (currentFile.content !== newContent) {
+        setIsEdited(true);
 
-      const updatedZipData = { ...zipData };
+        const updatedZipData = { ...zipData };
 
-      const fileToUpdate = updatedZipData.flatList[currentFile.path];
-      if (fileToUpdate) {
-        fileToUpdate.content = newContent;
+        const fileToUpdate = updatedZipData.flatList[currentFile.path];
+        if (fileToUpdate) {
+          fileToUpdate.content = newContent || "";
+
+          if (newContent) {
+            const encoder = new TextEncoder();
+            const bytes = encoder.encode(newContent);
+            fileToUpdate.size = bytes.length;
+          } else {
+            fileToUpdate.size = 0;
+          }
+        }
+
+        setZipData(updatedZipData);
       }
-
-      setZipData(updatedZipData);
+    } catch (error) {
+      console.error("Error updating file content:", error);
     }
   };
+
+  useMemo(() => {
+    if (currentFile?.type === "image" && currentFile.content instanceof Blob) {
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+      }
+      const url = URL.createObjectURL(currentFile.content);
+      setImageUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+        setImageUrl(null);
+      }
+    }
+  }, [currentFile?.path, currentFile?.content]);
 
   const editorComponent = useMemo(() => {
     if (!currentFile) {
@@ -42,9 +73,6 @@ const Editor = () => {
     switch (currentFile.type) {
       case "text":
         if (typeof currentFile.content === "string") {
-          if (currentFile.content.length === 0) {
-            return <EmptyMessage>This file is empty</EmptyMessage>;
-          }
           return (
             <MonacoEditor
               key={currentFile.path}
@@ -55,7 +83,26 @@ const Editor = () => {
         }
         return <EmptyMessage>Unable to display content</EmptyMessage>;
       case "image":
-        return <EmptyMessage>Image preview not implemented yet</EmptyMessage>;
+        if (currentFile.content instanceof Blob && imageUrl) {
+          return (
+            <ImagePreviewContainer>
+              <ImagePreview src={imageUrl} alt={currentFile.name} />
+              <ImageDetails>
+                <div>
+                  <strong>File:</strong> {currentFile.name}
+                </div>
+                <div>
+                  <strong>Size:</strong> {formatSize(currentFile.size || 0)}
+                </div>
+                <div>
+                  <strong>Type:</strong>{" "}
+                  {currentFile.content.type || `image/${currentFile.extension}`}
+                </div>
+              </ImageDetails>
+            </ImagePreviewContainer>
+          );
+        }
+        return <EmptyMessage>Unable to display image</EmptyMessage>;
       case "binary":
         return <EmptyMessage>Binary file cannot be displayed</EmptyMessage>;
       case "directory":
@@ -63,7 +110,7 @@ const Editor = () => {
       default:
         return <EmptyMessage>Unknown file type</EmptyMessage>;
     }
-  }, [currentFile?.path, currentFile?.content]);
+  }, [currentFile?.path, currentFile?.content, imageUrl]);
 
   return (
     <EditorContainer>
@@ -156,6 +203,38 @@ const EmptyMessage = styled.div`
   height: 100%;
   color: var(--color-text-secondary);
   font-style: italic;
+`;
+
+const ImagePreviewContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+  overflow: auto;
+`;
+
+const ImagePreview = styled.img`
+  max-width: 100%;
+  max-height: 80%;
+  object-fit: contain;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+`;
+
+const ImageDetails = styled.div`
+  margin-top: 20px;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: var(--color-primary);
+  width: 100%;
+  max-width: 400px;
+
+  & > div {
+    margin-bottom: 5px;
+  }
 `;
 
 export default Editor;

@@ -78,18 +78,25 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, onChange }) => {
   useEffect(() => {
     if (!editor) return;
 
-    if (typeof file.content === "string") {
-      console.log(
-        `Updating editor content for ${file.path}, content length: ${file.content.length}`
-      );
+    try {
+      if (typeof file.content === "string") {
+        console.log(
+          `Updating editor content for ${file.path}, content length: ${file.content.length}`
+        );
 
-      editor.setValue(file.content);
+        const currentValue = editor.getValue();
+        if (currentValue !== file.content) {
+          editor.setValue(file.content);
+        }
 
-      const model = editor.getModel();
-      if (model && file.extension) {
-        const language = getLanguageFromExtension(file.extension);
-        monaco.editor.setModelLanguage(model, language);
+        const model = editor.getModel();
+        if (model && file.extension) {
+          const language = getLanguageFromExtension(file.extension);
+          monaco.editor.setModelLanguage(model, language);
+        }
       }
+    } catch (error) {
+      console.error("Error updating editor content:", error);
     }
   }, [file, editor]);
 
