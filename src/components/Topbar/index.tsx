@@ -109,8 +109,26 @@ const TopBar = () => {
             item.size = data.byteLength;
 
             if (item.type === "text") {
-              const textDecoder = new TextDecoder();
-              item.content = textDecoder.decode(data);
+              try {
+                const textDecoder = new TextDecoder("utf-8");
+                item.content = textDecoder.decode(data);
+                console.log(
+                  `File content decoded for ${item.path}, content length: ${
+                    (item.content as string).length
+                  }`
+                );
+              } catch (e) {
+                console.error(
+                  `Error decoding file content for ${item.path}:`,
+                  e
+                );
+                item.content = "Error decoding file content.";
+              }
+            } else if (item.type === "image") {
+              // 이미지 처리는 나중에 구현
+              item.content = new Blob([data], {
+                type: `image/${item.extension}`,
+              });
             }
           });
           promises.push(promise);

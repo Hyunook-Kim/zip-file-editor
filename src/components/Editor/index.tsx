@@ -1,34 +1,69 @@
+import React, { useState, useMemo } from "react";
 import styled from "styled-components";
 import { useFileStore } from "@/models/files/store";
 import { FileIcon } from "../FileIcons";
+import MonacoEditor from "../MonacoEditor";
 
 const Editor = () => {
-  const { currentFile } = useFileStore();
+  const { currentFile, zipData, setZipData } = useFileStore();
+  const [isEdited, setIsEdited] = useState<boolean>(false);
 
-  const renderContent = () => {
+  const handleEditorChange = (newContent: string) => {
+    if (!currentFile || !zipData) return;
+    if (typeof currentFile.content !== "string") return;
+
+    if (currentFile.content !== newContent) {
+      setIsEdited(true);
+
+      const updatedZipData = { ...zipData };
+
+      const fileToUpdate = updatedZipData.flatList[currentFile.path];
+      if (fileToUpdate) {
+        fileToUpdate.content = newContent;
+      }
+
+      setZipData(updatedZipData);
+    }
+  };
+
+  const editorComponent = useMemo(() => {
     if (!currentFile) {
       return <EmptyMessage>No file selected</EmptyMessage>;
     }
 
+    console.log("Current file:", currentFile);
+    console.log("File type:", currentFile.type);
+    console.log("File content type:", typeof currentFile.content);
+    if (typeof currentFile.content === "string") {
+      console.log("Content length:", currentFile.content.length);
+      console.log("Content preview:", currentFile.content.substring(0, 100));
+    }
+
     switch (currentFile.type) {
       case "text":
-        return (
-          <TextContent>
-            {typeof currentFile.content === "string"
-              ? currentFile.content
-              : "Content cannot be displayed"}
-          </TextContent>
-        );
+        if (typeof currentFile.content === "string") {
+          if (currentFile.content.length === 0) {
+            return <EmptyMessage>This file is empty</EmptyMessage>;
+          }
+          return (
+            <MonacoEditor
+              key={currentFile.path}
+              file={currentFile}
+              onChange={handleEditorChange}
+            />
+          );
+        }
+        return <EmptyMessage>Unable to display content</EmptyMessage>;
       case "image":
-        return <EmptyMessage>not implemented</EmptyMessage>;
+        return <EmptyMessage>Image preview not implemented yet</EmptyMessage>;
       case "binary":
         return <EmptyMessage>Binary file cannot be displayed</EmptyMessage>;
       case "directory":
-        return <EmptyMessage>directory</EmptyMessage>;
+        return <EmptyMessage>This is a directory, not a file</EmptyMessage>;
       default:
-        return <EmptyMessage>Unknown File Type</EmptyMessage>;
+        return <EmptyMessage>Unknown file type</EmptyMessage>;
     }
-  };
+  }, [currentFile?.path, currentFile?.content]);
 
   return (
     <EditorContainer>
@@ -37,6 +72,7 @@ const Editor = () => {
           <FileTab>
             <FileIcon type={currentFile.type} size={16} />
             <FileName>{currentFile.name}</FileName>
+            {isEdited && <EditedIndicator>•</EditedIndicator>}
             {currentFile.size !== undefined && (
               <FileSize>({formatSize(currentFile.size)})</FileSize>
             )}
@@ -45,7 +81,7 @@ const Editor = () => {
           <EmptyTab>No file open</EmptyTab>
         )}
       </TabsContainer>
-      <EditorContent>{renderContent()}</EditorContent>
+      <EditorContent>{editorComponent}</EditorContent>
     </EditorContainer>
   );
 };
@@ -95,6 +131,12 @@ const FileName = styled.span`
   font-weight: 500;
 `;
 
+const EditedIndicator = styled.span`
+  margin-left: 4px;
+  color: var(--color-folder-text);
+  font-weight: bold;
+`;
+
 const FileSize = styled.span`
   margin-left: 8px;
   font-size: 0.8em;
@@ -103,19 +145,8 @@ const FileSize = styled.span`
 
 const EditorContent = styled.div`
   flex: 1;
-  overflow: auto;
-  padding: 16px;
+  overflow: hidden;
   background-color: var(--color-secondary);
-`;
-
-const TextContent = styled.pre`
-  font-size: 14px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  color: var(--color-text);
-  margin: 0;
-  padding: 0;
 `;
 
 const EmptyMessage = styled.div`
