@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import styled from "styled-components";
 import { useFileStore } from "@/models/files/store";
+import type { Tab } from "@/models/files/store";
 import { FileIcon } from "../FileIcons";
 import MonacoEditor, { executeUndo, executeRedo } from "../MonacoEditor";
 import type { editor } from "monaco-editor";
@@ -163,7 +164,7 @@ const Editor = () => {
       <TabsContainer>
         <TabsScrollContainer>
           {openTabs?.length > 0 ? (
-            openTabs.map((tab) => (
+            openTabs.map((tab: Tab) => (
               <FileTab
                 key={tab.id}
                 onClick={() => handleTabClick(tab.id)}
