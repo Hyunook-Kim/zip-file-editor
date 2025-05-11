@@ -2,12 +2,15 @@ import React, { useState, useMemo } from "react";
 import styled from "styled-components";
 import { useFileStore } from "@/models/files/store";
 import { FileIcon } from "../FileIcons";
-import MonacoEditor from "../MonacoEditor";
+import MonacoEditor, { executeUndo, executeRedo } from "../MonacoEditor";
+import type { editor } from "monaco-editor";
 
 const Editor = () => {
   const { currentFile, zipData, setZipData } = useFileStore();
   const [isEdited, setIsEdited] = useState<boolean>(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [editorInstance, setEditorInstance] =
+    useState<editor.IStandaloneCodeEditor | null>(null);
 
   const handleEditorChange = (newContent: string) => {
     if (!currentFile || !zipData) return;
@@ -36,6 +39,24 @@ const Editor = () => {
       }
     } catch (error) {
       console.error("Error updating file content:", error);
+    }
+  };
+
+  // Monaco Editor 인스턴스 저장
+  const handleEditorCreated = (editor: editor.IStandaloneCodeEditor) => {
+    setEditorInstance(editor);
+  };
+
+  // Undo/Redo 핸들러
+  const handleUndo = () => {
+    if (editorInstance) {
+      executeUndo(editorInstance);
+    }
+  };
+
+  const handleRedo = () => {
+    if (editorInstance) {
+      executeRedo(editorInstance);
     }
   };
 
@@ -78,6 +99,7 @@ const Editor = () => {
               key={currentFile.path}
               file={currentFile}
               onChange={handleEditorChange}
+              onEditorCreated={handleEditorCreated}
             />
           );
         }
@@ -115,17 +137,33 @@ const Editor = () => {
   return (
     <EditorContainer>
       <TabsContainer>
-        {currentFile ? (
-          <FileTab>
-            <FileIcon type={currentFile.type} size={16} />
-            <FileName>{currentFile.name}</FileName>
-            {isEdited && <EditedIndicator>•</EditedIndicator>}
-            {currentFile.size !== undefined && (
-              <FileSize>({formatSize(currentFile.size)})</FileSize>
-            )}
-          </FileTab>
-        ) : (
-          <EmptyTab>No file open</EmptyTab>
+        <FileTabSection>
+          {currentFile ? (
+            <FileTab>
+              <FileIcon type={currentFile.type} size={16} />
+              <FileName>{currentFile.name}</FileName>
+              {isEdited && <EditedIndicator>•</EditedIndicator>}
+              {currentFile.size !== undefined && (
+                <FileSize>({formatSize(currentFile.size)})</FileSize>
+              )}
+            </FileTab>
+          ) : (
+            <EmptyTab>No file open</EmptyTab>
+          )}
+        </FileTabSection>
+
+        {currentFile && currentFile.type === "text" && (
+          <EditorToolbar>
+            <ToolbarButton onClick={handleUndo} title="Undo (Ctrl+Z)">
+              <UndoIcon>↶</UndoIcon> Undo
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleRedo}
+              title="Redo (Ctrl+Shift+Z / Ctrl+Y)"
+            >
+              <RedoIcon>↷</RedoIcon> Redo
+            </ToolbarButton>
+          </EditorToolbar>
         )}
       </TabsContainer>
       <EditorContent>{editorComponent}</EditorContent>
@@ -155,6 +193,11 @@ const TabsContainer = styled.div`
   border-bottom: 1px solid var(--color-border);
   background-color: var(--color-secondary);
   min-height: 40px;
+  justify-content: space-between;
+`;
+
+const FileTabSection = styled.div`
+  display: flex;
 `;
 
 const FileTab = styled.div`
@@ -163,6 +206,39 @@ const FileTab = styled.div`
   padding: 8px 16px;
   background-color: var(--color-primary);
   border-right: 1px solid var(--color-border);
+`;
+
+const EditorToolbar = styled.div`
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+`;
+
+const ToolbarButton = styled.button`
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  margin-left: 8px;
+  background-color: var(--color-button);
+  color: var(--color-text);
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--color-button-hover);
+  }
+`;
+
+const UndoIcon = styled.span`
+  font-size: 16px;
+  margin-right: 4px;
+`;
+
+const RedoIcon = styled.span`
+  font-size: 16px;
+  margin-right: 4px;
 `;
 
 const EmptyTab = styled.div`
