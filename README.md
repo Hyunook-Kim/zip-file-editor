@@ -57,6 +57,72 @@ src/
 └── main.tsx           # 앱 진입점
 ```
 
+## 데이터 모델링
+
+애플리케이션의.models 디렉토리에는 Zip 파일 데이터 구조와 상태 관리를 위한 모델이 정의되어 있습니다:
+
+### 파일 모델 (files/file.ts)
+
+```typescript
+// 파일 타입 정의
+export type FileType = "text" | "image" | "binary" | "directory";
+
+// Zip 파일 내 항목을 나타내는 인터페이스
+export interface ZipItem {
+  name: string; // 파일/폴더 이름
+  path: string; // 전체 경로
+  type: FileType; // 파일 유형
+  content?: string | Blob; // 파일 내용
+  size?: number; // 파일 크기
+  children?: ZipItem[]; // 하위 파일/폴더
+  parent?: ZipItem; // 부모 폴더
+  extension?: string; // 파일 확장자
+}
+
+// 전체 Zip 데이터를 나타내는 인터페이스
+export interface ZipData {
+  originalFile: File; // 원본 Zip 파일
+  root: ZipItem; // 루트 디렉토리
+  flatList: { [key: string]: ZipItem }; // 경로 기반 빠른 검색용 맵
+}
+```
+
+### 상태 관리 (files/store.ts)
+
+Zustand를 사용하여 애플리케이션 상태를 관리합니다:
+
+```typescript
+// 열린 탭을 나타내는 인터페이스
+export interface Tab {
+  id: string; // 탭 ID (파일 경로)
+  file: ZipItem; // 탭에 표시된 파일
+  isEdited?: boolean; // 편집 여부
+}
+
+// 파일 상태 스토어 인터페이스
+interface FileStore {
+  zipData: ZipData | null; // 현재 로드된 Zip 데이터
+  isLoading: boolean; // 로딩 상태
+  currentFile: ZipItem | null; // 현재 선택된 파일
+  expandedFolders: Set<string>; // 펼쳐진 폴더들
+  openTabs: Tab[]; // 열린 탭 목록
+  activeTabId: string | null; // 현재 활성화된 탭
+
+  // 상태 변경 메서드들
+  setZipData: (data: ZipData | null) => void;
+  setIsLoading: (loading: boolean) => void;
+  setCurrentFile: (file: ZipItem | null) => void;
+  toggleFolder: (folderPath: string) => void;
+  isExpanded: (folderPath: string) => boolean;
+  setActiveTab: (tabId: string | null) => void;
+  openNewTab: (file: ZipItem) => void;
+  closeTab: (tabId: string) => void;
+  markTabAsEdited: (tabId: string, isEdited: boolean) => void;
+}
+```
+
+이 모델링 구조는 Zip 파일의 계층적 구조를 표현하고, 사용자 인터페이스의 상태를 관리하는 기반이 됩니다.
+
 ## 작동 방식
 
 1. Zip 파일을 업로드하면 JSZip 라이브러리를 사용하여 파일을 파싱합니다
