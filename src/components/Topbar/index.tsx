@@ -4,13 +4,13 @@ import styled from "styled-components";
 import JSZip from "jszip";
 import { TEXT_EXTENSIONS, IMAGE_EXTENSIONS } from "@/models/files";
 import type { FileType, ZipItem, ZipData } from "@/models/files";
+import { useFileStore } from "@/models/files/store";
 
 const TopBar = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [zipData, setZipData] = useState<ZipData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { setZipData, setIsLoading, isLoading } = useFileStore();
 
   const detectFileType = (filename: string): FileType => {
     if (filename.endsWith("/")) return "directory";
