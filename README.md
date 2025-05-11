@@ -1,54 +1,67 @@
-# React + TypeScript + Vite
+# Zip 파일 편집기
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Zip 파일을 업로드하고, 내부 파일들을 탐색하고 편집할 수 있는 웹 애플리케이션입니다. React와 TypeScript로 개발되었으며, 직관적인 UI로 Zip 파일 내용을 쉽게 확인하고 수정할 수 있습니다.
 
-Currently, two official plugins are available:
+## 주요 기능
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Zip 파일 업로드**: 버튼 클릭이나 드래그 앤 드롭으로 Zip 파일 업로드
+- **파일 트리 탐색**: 업로드된 Zip 파일의 폴더 구조를 트리 형태로 표시
+- **파일 내용 확인**: 텍스트, 이미지, 바이너리 등 다양한 파일 타입 지원
+- **파일 편집**: 텍스트 파일의 내용을 Monaco 에디터로 편집
+- **탭 기반 인터페이스**: 여러 파일을 동시에 열고 탭으로 전환 가능
 
-## Expanding the ESLint configuration
+## 기술 스택
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **프론트엔드**: React 19, TypeScript
+- **상태 관리**: Zustand
+- **스타일링**: styled-components
+- **에디터**: Monaco Editor
+- **ZIP 파일 처리**: JSZip
+- **번들러**: Vite
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## 시작하기
+
+### 필요 조건
+
+- Node.js 18.0 이상
+- npm
+
+### 설치
+
+```bash
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
+npm run dev
+
+# 프로덕션 빌드
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 프로젝트 구조
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
 ```
+src/
+├── components/        # UI 컴포넌트
+│   ├── Editor/        # 파일 편집 컴포넌트
+│   ├── FileIcons/     # 파일 유형별 아이콘
+│   ├── FileTree/      # 파일 트리 네비게이션
+│   ├── MonacoEditor/  # Monaco 에디터 통합
+│   ├── Sidebar/       # 사이드바 컴포넌트
+│   └── Topbar/        # 상단 툴바 컴포넌트
+├── models/
+│   └── files/         # 파일 관련 모델 및 상태 관리
+├── App.tsx            # 메인 앱 컴포넌트
+├── index.css          # 글로벌 스타일
+└── main.tsx           # 앱 진입점
+```
+
+## 작동 방식
+
+1. Zip 파일을 업로드하면 JSZip 라이브러리를 사용하여 파일을 파싱합니다
+2. 파싱된 파일의 폴더 구조는 트리 형태로 변환되어 사이드바에 표시됩니다
+3. 폴더를 클릭하면 하위 항목을 펼치거나 접을 수 있습니다
+4. 파일을 클릭하면 에디터 영역에 파일 내용이 표시됩니다
+5. 텍스트 파일은 Monaco 에디터로 편집할 수 있습니다
+6. 여러 파일을 탭으로 관리하여 빠르게 전환할 수 있습니다
