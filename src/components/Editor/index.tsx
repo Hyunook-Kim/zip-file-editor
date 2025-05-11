@@ -6,19 +6,29 @@ import MonacoEditor, { executeUndo, executeRedo } from "../MonacoEditor";
 import type { editor } from "monaco-editor";
 
 const Editor = () => {
-  const { currentFile, zipData, setZipData } = useFileStore();
-  const [isEdited, setIsEdited] = useState<boolean>(false);
+  const {
+    currentFile,
+    zipData,
+    setZipData,
+    openTabs,
+    activeTabId,
+    setActiveTab,
+    closeTab,
+    markTabAsEdited,
+  } = useFileStore();
+
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [editorInstance, setEditorInstance] =
     useState<editor.IStandaloneCodeEditor | null>(null);
 
   const handleEditorChange = (newContent: string) => {
-    if (!currentFile || !zipData) return;
+    if (!currentFile || !zipData || !activeTabId) return;
     if (typeof currentFile.content !== "string") return;
 
     try {
       if (currentFile.content !== newContent) {
-        setIsEdited(true);
+        // 탭을 수정됨 상태로 표시
+        markTabAsEdited(activeTabId, true);
 
         const updatedZipData = { ...zipData };
 
@@ -58,6 +68,20 @@ const Editor = () => {
     if (editorInstance) {
       executeRedo(editorInstance);
     }
+  };
+
+  // 탭 클릭 핸들러
+  const handleTabClick = (tabId: string) => {
+    setActiveTab(tabId);
+  };
+
+  // 탭 닫기 핸들러
+  const handleTabClose = (
+    e: React.MouseEvent<HTMLDivElement, MouseEvent>,
+    tabId: string
+  ) => {
+    e.stopPropagation(); // 탭 클릭 이벤트 전파 방지
+    closeTab(tabId);
   };
 
   useMemo(() => {
@@ -137,20 +161,32 @@ const Editor = () => {
   return (
     <EditorContainer>
       <TabsContainer>
-        <FileTabSection>
-          {currentFile ? (
-            <FileTab>
-              <FileIcon type={currentFile.type} size={16} />
-              <FileName>{currentFile.name}</FileName>
-              {isEdited && <EditedIndicator>•</EditedIndicator>}
-              {currentFile.size !== undefined && (
-                <FileSize>({formatSize(currentFile.size)})</FileSize>
-              )}
-            </FileTab>
+        <TabsScrollContainer>
+          {openTabs?.length > 0 ? (
+            openTabs.map((tab) => (
+              <FileTab
+                key={tab.id}
+                onClick={() => handleTabClick(tab.id)}
+                $isActive={activeTabId === tab.id}
+              >
+                <FileIcon type={tab.file.type} size={16} />
+                <FileName>{tab.file.name}</FileName>
+                {tab.isEdited && <EditedIndicator>•</EditedIndicator>}
+                {tab.file.size !== undefined && (
+                  <FileSize>({formatSize(tab.file.size)})</FileSize>
+                )}
+                <CloseButton
+                  onClick={(e) => handleTabClose(e, tab.id)}
+                  title="Close tab"
+                >
+                  ✕
+                </CloseButton>
+              </FileTab>
+            ))
           ) : (
             <EmptyTab>No file open</EmptyTab>
           )}
-        </FileTabSection>
+        </TabsScrollContainer>
 
         {currentFile && currentFile.type === "text" && (
           <EditorToolbar>
@@ -196,16 +232,58 @@ const TabsContainer = styled.div`
   justify-content: space-between;
 `;
 
-const FileTabSection = styled.div`
+const TabsScrollContainer = styled.div`
   display: flex;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: thin;
+
+  /* Chrome, Safari 스크롤바 스타일링 */
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
 `;
 
-const FileTab = styled.div`
+const FileTab = styled.div<{ $isActive: boolean }>`
   display: flex;
   align-items: center;
   padding: 8px 16px;
-  background-color: var(--color-primary);
+  background-color: ${(props) =>
+    props.$isActive ? "var(--color-primary)" : "var(--color-secondary)"};
   border-right: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+
+  &:hover {
+    background-color: ${(props) =>
+      props.$isActive ? "var(--color-primary)" : "var(--color-hover)"};
+  }
+`;
+
+const CloseButton = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  opacity: 0.6;
+
+  &:hover {
+    background-color: var(--color-border);
+    opacity: 1;
+  }
 `;
 
 const EditorToolbar = styled.div`
