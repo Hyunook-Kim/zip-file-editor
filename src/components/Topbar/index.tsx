@@ -1,17 +1,148 @@
 import React, { useState, useRef } from "react";
 import type { DragEvent } from "react";
 import styled from "styled-components";
+import JSZip from "jszip";
+import { TEXT_EXTENSIONS, IMAGE_EXTENSIONS } from "@/models/files";
+import type { FileType, ZipItem, ZipData } from "@/models/files";
 
 const TopBar = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [zipData, setZipData] = useState<ZipData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const detectFileType = (filename: string): FileType => {
+    if (filename.endsWith("/")) return "directory";
+
+    const ext = filename.split(".").pop()?.toLowerCase() || "";
+
+    if (TEXT_EXTENSIONS.includes(ext)) return "text";
+    if (IMAGE_EXTENSIONS.includes(ext)) return "image";
+
+    return "binary";
+  };
+
+  const parseZipFile = async (file: File) => {
+    try {
+      setIsLoading(true);
+      const zip = new JSZip();
+      const zipContent = await zip.loadAsync(file);
+
+      const root: ZipItem = {
+        name: "root",
+        path: "",
+        type: "directory",
+        children: [],
+      };
+
+      const flatList: { [key: string]: ZipItem } = {
+        "": root,
+      };
+
+      const promises: Promise<void>[] = [];
+
+      zipContent.forEach((relativePath, zipEntry) => {
+        if (
+          relativePath.startsWith("__MACOSX/") ||
+          relativePath.includes("/.")
+        ) {
+          return;
+        }
+
+        const pathParts = relativePath.split("/");
+        const fileName = pathParts.pop() || "";
+        const parentPath = pathParts.join("/");
+        const isDirectory = zipEntry.dir;
+
+        const item: ZipItem = {
+          name: fileName || parentPath.split("/").pop() || "",
+          path: relativePath,
+          type: isDirectory ? "directory" : detectFileType(relativePath),
+          size: 0,
+          children: isDirectory ? [] : undefined,
+          extension: isDirectory
+            ? undefined
+            : relativePath.split(".").pop() || "",
+        };
+
+        if (parentPath) {
+          let parent = flatList[parentPath];
+
+          if (!parent) {
+            let currentPath = "";
+            for (const part of pathParts) {
+              const prevPath = currentPath;
+              currentPath = currentPath ? `${currentPath}/${part}` : part;
+
+              if (!flatList[currentPath]) {
+                const newFolder: ZipItem = {
+                  name: part,
+                  path: `${currentPath}/`,
+                  type: "directory",
+                  children: [],
+                };
+
+                flatList[currentPath] = newFolder;
+
+                if (prevPath) {
+                  flatList[prevPath].children?.push(newFolder);
+                } else {
+                  root.children?.push(newFolder);
+                }
+              }
+            }
+
+            parent = flatList[parentPath];
+          }
+
+          parent.children?.push(item);
+          item.parent = parent;
+        } else if (!isDirectory) {
+          root.children?.push(item);
+        }
+
+        flatList[relativePath] = item;
+
+        if (!isDirectory) {
+          const promise = zipEntry.async("uint8array").then((data) => {
+            item.size = data.byteLength;
+
+            if (item.type === "text") {
+              const textDecoder = new TextDecoder();
+              item.content = textDecoder.decode(data);
+            }
+          });
+          promises.push(promise);
+        }
+      });
+
+      await Promise.all(promises);
+
+      const result: ZipData = {
+        originalFile: file,
+        root,
+        flatList,
+      };
+
+      setZipData(result);
+      console.log("Parsed Zip Structure:", result);
+      console.log("Root Level Items:", root.children);
+    } catch (error) {
+      console.error("Error parsing zip file:", error);
+      alert("Error parsing zip file. Please try again with a valid zip file.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      setUploadedFile(files[0]);
-      console.log("Uploaded file:", files[0].name);
+      const file = files[0];
+      setUploadedFile(file);
+      console.log("Uploaded file:", file.name);
+      parseZipFile(file);
     }
   };
 
@@ -48,13 +179,12 @@ const TopBar = () => {
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      // 첫 번째 파일만 처리
       const file = files[0];
 
-      // .zip 파일 체크
       if (file.name.toLowerCase().endsWith(".zip")) {
         setUploadedFile(file);
         console.log("Uploaded file via drag & drop:", file.name);
+        parseZipFile(file);
       } else {
         alert("Please upload a zip file.");
       }
@@ -66,8 +196,8 @@ const TopBar = () => {
       <h2>File Upload Handler (Upload/Download)</h2>
       <UploadArea>
         <ButtonContainer>
-          <UploadButton onClick={handleFileButtonClick}>
-            Upload Zip File
+          <UploadButton onClick={handleFileButtonClick} disabled={isLoading}>
+            {isLoading ? "Parsing..." : "Upload Zip File"}
           </UploadButton>
           <input
             type="file"
@@ -80,6 +210,7 @@ const TopBar = () => {
             <div>
               Uploaded: {uploadedFile.name} (
               {(uploadedFile.size / 1024).toFixed(2)} KB)
+              {isLoading && <span> - Parsing file contents...</span>}
             </div>
           )}
         </ButtonContainer>
@@ -90,9 +221,16 @@ const TopBar = () => {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
+          disabled={isLoading}
         >
-          <p>Drag and drop zip file here</p>
-          <small>or use the upload button above</small>
+          {isLoading ? (
+            <p>Processing zip file...</p>
+          ) : (
+            <>
+              <p>Drag and drop zip file here</p>
+              <small>or use the upload button above</small>
+            </>
+          )}
         </DropZone>
       </UploadArea>
     </TopBarContainer>
@@ -121,19 +259,21 @@ const ButtonContainer = styled.div`
   align-items: center;
 `;
 
-const UploadButton = styled.button`
+const UploadButton = styled.button<{ disabled?: boolean }>`
   padding: 8px 16px;
-  background-color: var(--color-primary);
+  background-color: ${(props) =>
+    props.disabled ? "#cccccc" : "var(--color-primary)"};
   color: white;
   border: none;
   border-radius: 4px;
-  cursor: pointer;
+  cursor: ${(props) => (props.disabled ? "not-allowed" : "pointer")};
   &:hover {
-    background-color: var(--color-primary-dark);
+    background-color: ${(props) =>
+      props.disabled ? "#cccccc" : "var(--color-primary-dark)"};
   }
 `;
 
-const DropZone = styled.div<{ $isDragging: boolean }>`
+const DropZone = styled.div<{ $isDragging: boolean; disabled?: boolean }>`
   border: ${(props) =>
     props.$isDragging
       ? "3px solid var(--color-drag-border)"
@@ -141,14 +281,19 @@ const DropZone = styled.div<{ $isDragging: boolean }>`
   border-radius: 8px;
   padding: 20px;
   text-align: center;
-  background-color: ${(props) =>
-    props.$isDragging ? "var(--color-drag-background)" : "transparent"};
-  color: ${(props) =>
-    props.$isDragging ? "var(--color-drag-text)" : "inherit"};
+  background-color: ${(props) => {
+    if (props.disabled) return "#f5f5f5";
+    return props.$isDragging ? "var(--color-drag-background)" : "transparent";
+  }};
+  color: ${(props) => {
+    if (props.disabled) return "#999999";
+    return props.$isDragging ? "var(--color-drag-text)" : "inherit";
+  }};
   transition: all 0.2s ease;
-  cursor: pointer;
+  cursor: ${(props) => (props.disabled ? "not-allowed" : "pointer")};
   box-shadow: ${(props) =>
     props.$isDragging ? "0 0 10px var(--color-drag-shadow)" : "none"};
+  opacity: ${(props) => (props.disabled ? 0.7 : 1)};
 
   p {
     margin: 0 0 8px;
@@ -162,12 +307,18 @@ const DropZone = styled.div<{ $isDragging: boolean }>`
   }
 
   &:hover {
-    border-color: ${(props) =>
-      props.$isDragging ? "var(--color-drag-border)" : "var(--color-primary)"};
-    background-color: ${(props) =>
-      props.$isDragging
+    border-color: ${(props) => {
+      if (props.disabled) return "var(--color-border)";
+      return props.$isDragging
+        ? "var(--color-drag-border)"
+        : "var(--color-primary)";
+    }};
+    background-color: ${(props) => {
+      if (props.disabled) return "#f5f5f5";
+      return props.$isDragging
         ? "var(--color-drag-background)"
-        : "rgba(76, 175, 80, 0.05)"};
+        : "rgba(76, 175, 80, 0.05)";
+    }};
   }
 `;
 
